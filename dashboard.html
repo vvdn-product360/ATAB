@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Airport Control System</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #0b1a2f;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px;
+            background: #162447;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 30px;
+        }
+
+        .panel {
+            background: #1f4068;
+            padding: 20px;
+            border-radius: 10px;
+            width: 40%;
+        }
+
+        input, select {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: none;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #e43f5a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #ff2e63;
+        }
+
+        .board {
+            background: black;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: monospace;
+        }
+        .board {
+    font-family: "Courier New", monospace;
+}
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid gray;
+        }
+        .row {
+    transition: all 0.3s ease;
+}
+.row {
+    display: flex;
+    padding: 8px;
+    border-bottom: 1px solid gray;
+    transition: all 0.3s ease;
+}
+
+.row span {
+    width: 20%;
+    text-align: center;
+}
+.row:hover {
+    background: #333;
+}
+        .header {
+            font-weight: bold;
+            color: yellow;
+        }
+    <span>Flight</span>
+    <span>Destination</span>
+    <span>Time</span>
+    <span>Gate</span>
+    <span>Status</span>
+</div>
+        .status {
+            color: #00ffcc;
+        }
+        @keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.blink {
+    animation: blink 1s infinite;
+    font-weight: bold;
+}
+    </style>
+</head>
+
+<body>
+
+<h1>✈ Airport Control & Display System</h1>
+
+<div class="container">
+
+    <!-- CONTROL PANEL -->
+    <div class="panel">
+        <h2>Control Panel</h2>
+
+        <input type="text" id="flight" placeholder="Flight Number (AA125)">
+        <input type="text" id="destination" placeholder="Destination (London)">
+        <input type="text" id="time" placeholder="Time (14:00)">
+        <input type="text" id="gate" placeholder="Gate (B22)">
+
+        <select id="status">
+            <option>Boarding</option>
+            <option>Delayed</option>
+            <option>Gate Changed</option>
+            <option>Final Call</option>
+        </select>
+
+        <button onclick="sendAlert()">Send Update</button>
+
+        <p id="msg"></p>
+    </div>
+
+    <!-- DISPLAY BOARD -->
+    <div class="panel board">
+        <h2>Departure Board</h2>
+
+        <div class="row header">
+            <span>Flight</span>
+            <span>Destination</span>
+            <span>Time</span>
+            <span>Gate</span>
+            <span>Status</span>
+        </div>
+
+        <div id="board"></div>
+    </div>
+
+</div>
+
+<script>
+    let lastNotificationId = null;
+    function getStatusColor(status) {
+        status = status.trim().toLowerCase();
+
+        if (status.includes("boarding")) return "lightgreen";
+        if (status.includes("delayed")) return "red";
+        if (status.includes("gate changed")) return "yellow";
+        if (status.includes("final")) return "orange";
+        return "#00ffcc";
+    }
+
+    async function sendAlert() {
+        const flight = document.getElementById("flight").value;
+        const dest = document.getElementById("destination").value;
+        const time = document.getElementById("time").value;
+        const gate = document.getElementById("gate").value;
+        const status = document.getElementById("status").value;
+
+        const message = `${flight} | ${dest} | ${time} | ${gate} | ${status}`;
+
+        await fetch("http://localhost:3000/send-alert", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message })
+        });
+
+        document.getElementById("msg").innerText = "✅ Update Sent!";
+        loadBoard();
+    }
+async function loadBoard() {
+    const res = await fetch("http://localhost:3000/devices/ATAB_BAND_001/notifications");
+    const data = await res.json();
+    const latest = data.notifications[data.notifications.length - 1];
+
+if (latest && latest.id !== lastNotificationId) {
+    playBeep();
+    lastNotificationId = latest.id;
+}
+
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+
+    data.notifications.reverse().forEach((n, index) => {
+        const parts = n.message.split("|");
+
+        const isLatest = index === 0;
+
+// Play sound only for latest alert
+if (isLatest) {
+    playBeep();
+}
+
+        const statusText = parts[4] || "";
+        const isDelayed = statusText.toLowerCase().includes("delayed");
+
+        const row = `
+            <div class="row" style="
+                background:${isLatest ? '#222' : 'transparent'};
+                font-weight:${isLatest ? 'bold' : 'normal'};
+                font-size:${isLatest ? '18px' : '14px'};
+            ">
+                <span>${parts[0] || ""}</span>
+                <span>${parts[1] || ""}</span>
+                <span>${parts[2] || ""}</span>
+                <span>${parts[3] || ""}</span>
+                <span class="${isDelayed ? 'blink' : ''}" 
+                      style="color:${getStatusColor(statusText)}">
+                    ${statusText}
+                </span>
+            </div>
+        `;
+
+        board.innerHTML += row;
+    });
+}
+function playBeep() {
+    const audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
+    audio.play();
+}
+   
+</script>
+
+</body>
+</html>
